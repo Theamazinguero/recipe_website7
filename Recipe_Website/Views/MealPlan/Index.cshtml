@@ -1,0 +1,653 @@
+@{
+    ViewData["Title"] = "Meal Planner";
+}
+
+<style>
+    /* Minimal styling for recipe suggestions dropdown */
+    .recipe-cell {
+        position: relative;
+    }
+
+    .recipe-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1055;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+        .recipe-suggestions .list-group-item {
+            cursor: pointer;
+        }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="fw-bold mb-1">Meal Planner</h1>
+        <p class="text-muted mb-0">
+            Plan your week, save time, and keep your recipes organized in one place.
+        </p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="button"
+                class="btn btn-outline-peach px-4 py-2 shadow-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#shoppingListModal">
+            Generate Shopping List
+        </button>
+        <button type="button"
+                class="btn btn-peach px-4 py-2 shadow-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#mealPlanModal">
+            Create a New Meal Plan
+        </button>
+    </div>
+</div>
+
+<hr class="mb-4" />
+
+<div class="row justify-content-center">
+    <!-- Existing Meal Plans -->
+    <div class="col-lg-10">
+        <div class="soft-card">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h2 class="h5 mb-0">My Meal Plans</h2>
+                    <small class="text-muted">View and manage the meal plans you have created.</small>
+                </div>
+                <button type="button"
+                        class="btn btn-sm btn-outline-peach"
+                        onclick="loadPlans()">
+                    Refresh
+                </button>
+            </div>
+
+            <div id="plansContainer" class="mt-3">
+                <p class="text-muted mb-0">
+                    Loading meal plans…
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CREATE MEAL PLAN MODAL -->
+<div class="modal fade" id="mealPlanModal" tabindex="-1" aria-labelledby="mealPlanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-semibold" id="mealPlanModalLabel">Create a New Meal Plan</h5>
+                    <small class="text-muted">
+                        Choose a date range, then add meals by searching for recipes by name.
+                    </small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body pt-3">
+                <form id="createPlanForm">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="startDate" class="form-label fw-semibold">Start Date</label>
+                            <input type="date" id="startDate" class="form-control" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="endDate" class="form-label fw-semibold">End Date</label>
+                            <input type="date" id="endDate" class="form-control" required />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="mb-0 fw-semibold">Meals in this plan</h6>
+                            <small class="text-muted">
+                                Each row is a scheduled recipe (date, meal type, and recipe).
+                            </small>
+                        </div>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-peach"
+                                onclick="addMealRow()">
+                            Add meal
+                        </button>
+                    </div>
+
+                    <div class="table-responsive mb-2">
+                        <table class="table align-middle table-sm mb-0" id="itemsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">Date</th>
+                                    <th style="width: 20%;">Meal Type</th>
+                                    <th style="width: 40%;">Recipe</th>
+                                    <th style="width: 15%;" class="text-end">Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsBody">
+                                <!-- rows added by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div id="createMessage" class="small"></div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-light border" data-bs-dismiss="modal">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-peach">
+                                Save Meal Plan
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- SHOPPING LIST MODAL -->
+<div class="modal fade" id="shoppingListModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-semibold">Shopping List</h5>
+                    <small class="text-muted">Generate a shopping list from your meal plans.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <div class="row g-3 mb-3 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">From</label>
+                        <input type="date" id="slStartDate" class="form-control" />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">To</label>
+                        <input type="date" id="slEndDate" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-peach w-100" onclick="generateShoppingList()">
+                            Generate
+                        </button>
+                    </div>
+                </div>
+                
+                <hr />
+
+                <div id="shoppingListContainer">
+                    <p class="text-muted text-center my-4">Select a date range and click Generate.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // API bases
+        const mealPlansApiBase = '/api/MealPlans'; // your group's backend
+        const recipesApiBase = '/api/recipes';     // your existing recipes API
+
+        // ---- helpers ----
+        function mealTypeToText(value) {
+            switch (Number(value)) {
+                case 0: return 'Breakfast';
+                case 1: return 'Lunch';
+                case 2: return 'Dinner';
+                case 3: return 'Snack';
+                default: return 'Unknown';
+            }
+        }
+
+        // Build one meal row with recipe search
+        function addMealRow(dateValue = '', mealTypeValue = '0', recipeNameValue = '', recipeIdValue = '') {
+            const tbody = document.getElementById('itemsBody');
+
+            const tr = document.createElement('tr');
+            tr.classList.add('meal-item-row');
+
+            tr.innerHTML = `
+                <td>
+                    <input type="date" class="form-control form-control-sm meal-date" value="${dateValue}" required />
+                </td>
+                <td>
+                    <select class="form-select form-select-sm meal-type">
+                        <option value="0" ${mealTypeValue === '0' ? 'selected' : ''}>Breakfast</option>
+                        <option value="1" ${mealTypeValue === '1' ? 'selected' : ''}>Lunch</option>
+                        <option value="2" ${mealTypeValue === '2' ? 'selected' : ''}>Dinner</option>
+                        <option value="3" ${mealTypeValue === '3' ? 'selected' : ''}>Snack</option>
+                    </select>
+                </td>
+                <td>
+                    <div class="recipe-cell">
+                        <input type="text"
+                               class="form-control form-control-sm meal-recipe-name"
+                               placeholder="Search recipe by name"
+                               value="${recipeNameValue}"
+                               autocomplete="off" />
+                        <input type="hidden"
+                               class="meal-recipe-id"
+                               value="${recipeIdValue}" />
+                        <div class="recipe-suggestions list-group list-group-flush bg-white border d-none"></div>
+                    </div>
+                </td>
+                <td class="text-end">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger"
+                            onclick="this.closest('tr').remove()">
+                        Remove
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+        }
+
+        // ---- load existing plans from backend ----
+        async function loadPlans() {
+            const container = document.getElementById('plansContainer');
+            container.innerHTML = '<p class="text-muted mb-0">Loading meal plans…</p>';
+
+            try {
+                const response = await fetch(mealPlansApiBase, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin' // Include cookies
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        container.innerHTML = '<p class="text-danger mb-0">You must be logged in to see your meal plans.</p>';
+                        return;
+                    }
+                    throw new Error('Failed to load meal plans.');
+                }
+
+                const plans = await response.json();
+
+                if (!plans || plans.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4">
+                            <p class="text-muted mb-2">You don’t have any meal plans yet.</p>
+                            <button class="btn btn-sm btn-peach"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#mealPlanModal">
+                                Create your first meal plan
+                            </button>
+                        </div>`;
+                    return;
+                }
+
+                let html = '';
+
+                plans.forEach(plan => {
+                    html += `
+                        <div class="border rounded-3 mb-3 p-3 shadow-sm bg-white">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <strong class="d-block">Meal Plan #${plan.id}</strong>
+                                    <small class="text-muted">
+                                        ${plan.startDate.substring(0, 10)} &rarr; ${plan.endDate.substring(0, 10)}
+                                    </small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        onclick="deletePlan(${plan.id})">
+                                    Delete
+                                </button>
+                            </div>
+                            ${renderItemsTable(plan.items)}
+                        </div>`;
+                });
+
+                container.innerHTML = html;
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p class="text-danger mb-0">Error loading meal plans.</p>';
+            }
+        }
+
+        function renderItemsTable(items) {
+            if (!items || items.length === 0) {
+                return '<p class="text-muted mb-0">No meals in this plan.</p>';
+            }
+
+            let rows = '';
+            items.forEach(item => {
+                rows += `
+                    <tr>
+                        <td>${item.date.substring(0, 10)}</td>
+                        <td>${mealTypeToText(item.mealType)}</td>
+                        <td>${item.recipeId}</td>
+                    </tr>`;
+            });
+
+            return `
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Meal Type</th>
+                                <th>Recipe Id</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>`;
+        }
+
+        // ---- recipe search per row ----
+        let searchTimeoutId = null;
+
+        function setupRecipeSearchHandlers() {
+            const tbody = document.getElementById('itemsBody');
+
+            // input handler (delegated)
+            tbody.addEventListener('input', function (e) {
+                const input = e.target.closest('.meal-recipe-name');
+                if (!input) return;
+
+                const query = input.value.trim();
+                const cell = input.closest('.recipe-cell');
+                const suggestions = cell.querySelector('.recipe-suggestions');
+                const hiddenId = cell.querySelector('.meal-recipe-id');
+
+                hiddenId.value = ''; // reset until user selects
+                suggestions.innerHTML = '';
+                suggestions.classList.add('d-none');
+
+                if (query.length < 2) {
+                    return;
+                }
+
+                if (searchTimeoutId) {
+                    clearTimeout(searchTimeoutId);
+                }
+
+                searchTimeoutId = setTimeout(async () => {
+                    try {
+                        const resp = await fetch(`${recipesApiBase}?search=${encodeURIComponent(query)}`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+
+                        if (!resp.ok) return;
+                        const data = await resp.json();
+
+                        if (!data || data.length === 0) {
+                            suggestions.innerHTML = '<div class="list-group-item small text-muted">No recipes found</div>';
+                            suggestions.classList.remove('d-none');
+                            return;
+                        }
+
+                        let html = '';
+                        data.slice(0, 8).forEach(r => {
+                            html += `
+                                <button type="button"
+                                        class="list-group-item list-group-item-action"
+                                        data-id="${r.id}"
+                                        data-name="${r.title}">
+                                    ${r.title}
+                                </button>`;
+                        });
+
+                        suggestions.innerHTML = html;
+                        suggestions.classList.remove('d-none');
+                    } catch (err) {
+                        console.error(err);
+                    }
+                }, 300); // simple debounce
+            });
+
+            // suggestion click handler (delegated)
+            tbody.addEventListener('click', function (e) {
+                const btn = e.target.closest('.recipe-suggestions .list-group-item');
+                if (!btn) return;
+
+                const cell = btn.closest('.recipe-cell');
+                const nameInput = cell.querySelector('.meal-recipe-name');
+                const hiddenId = cell.querySelector('.meal-recipe-id');
+                const suggestions = cell.querySelector('.recipe-suggestions');
+
+                const id = btn.getAttribute('data-id');
+                const name = btn.getAttribute('data-name');
+
+                hiddenId.value = id;
+                nameInput.value = name;
+                suggestions.classList.add('d-none');
+            });
+
+            // clicking outside suggestions closes them
+            document.addEventListener('click', function (e) {
+                const isSuggestionClick = e.target.closest('.recipe-cell');
+                if (!isSuggestionClick) {
+                    document.querySelectorAll('.recipe-suggestions').forEach(el => {
+                        el.classList.add('d-none');
+                    });
+                }
+            });
+        }
+
+        // ---- create new meal plan ----
+        async function createMealPlan(event) {
+            event.preventDefault();
+
+            const msg = document.getElementById('createMessage');
+            msg.textContent = '';
+            msg.className = 'small';
+
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                msg.textContent = 'Start and end dates are required.';
+                msg.classList.add('text-danger');
+                return;
+            }
+
+            const rows = document.querySelectorAll('.meal-item-row');
+            if (rows.length === 0) {
+                msg.textContent = 'Add at least one meal to the plan.';
+                msg.classList.add('text-danger');
+                return;
+            }
+
+            const items = [];
+            let hasError = false;
+
+            rows.forEach(row => {
+                const date = row.querySelector('.meal-date').value;
+                const mealType = row.querySelector('.meal-type').value;
+                const recipeId = row.querySelector('.meal-recipe-id').value;
+
+                if (!date || !recipeId) {
+                    hasError = true;
+                    return;
+                }
+
+                items.push({
+                    recipeId: Number(recipeId),
+                    date: date,
+                    mealType: Number(mealType)
+                });
+            });
+
+            if (hasError || items.length === 0) {
+                msg.textContent = 'Each meal must have a date and a selected recipe.';
+                msg.classList.add('text-danger');
+                return;
+            }
+
+            const payload = {
+                startDate: startDate,
+                endDate: endDate,
+                items: items
+            };
+
+            if (!localStorage.getItem('userId')) {
+                msg.textContent = 'You must be logged in to create a meal plan.';
+                msg.classList.add('text-danger');
+                return;
+            }
+
+            const token = localStorage.getItem('jwt');
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            try {
+                const response = await fetch(mealPlansApiBase, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 201) {
+                    msg.textContent = 'Meal plan created successfully.';
+                    msg.classList.add('text-success');
+
+                    const modalEl = document.getElementById('mealPlanModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    document.getElementById('createPlanForm').reset();
+                    document.getElementById('itemsBody').innerHTML = '';
+                    addMealRow();
+
+                    loadPlans();
+                } else if (response.status === 401) {
+                    msg.textContent = 'You must be logged in to create a meal plan.';
+                    msg.classList.add('text-danger');
+                } else {
+                    msg.textContent = 'Failed to create meal plan.';
+                    msg.classList.add('text-danger');
+                }
+            } catch (err) {
+                console.error(err);
+                msg.textContent = 'Error communicating with the server.';
+                msg.classList.add('text-danger');
+            }
+        }
+
+        // ---- delete a plan ----
+        async function deletePlan(id) {
+            if (!confirm('Are you sure you want to delete this meal plan?')) return;
+
+            if (!localStorage.getItem('userId')) {
+                alert('You must be logged in to delete a meal plan.');
+                return;
+            }
+
+            const token = localStorage.getItem('jwt');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            try {
+                const response = await fetch(`${mealPlansApiBase}/${id}`, {
+                    method: 'DELETE',
+                    headers: headers
+                });
+
+                if (response.status === 204) {
+                    loadPlans();
+                } else {
+                    alert('Could not delete meal plan.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error deleting meal plan.');
+            }
+        }
+
+        // ---- wire everything up on page load ----
+        document.addEventListener('DOMContentLoaded', () => {
+            addMealRow(); // initial row in modal
+            setupRecipeSearchHandlers();
+
+            document.getElementById('createPlanForm')
+                .addEventListener('submit', createMealPlan);
+
+            loadPlans();
+
+            // Set default dates for shopping list (current week)
+            const today = new Date();
+            const nextWeek = new Date();
+            nextWeek.setDate(today.getDate() + 7);
+            document.getElementById('slStartDate').valueAsDate = today;
+            document.getElementById('slEndDate').valueAsDate = nextWeek;
+        });
+
+        async function generateShoppingList() {
+            const container = document.getElementById('shoppingListContainer');
+            const start = document.getElementById('slStartDate').value;
+            const end = document.getElementById('slEndDate').value;
+
+            if (!start || !end) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+
+            container.innerHTML = '<p class="text-muted text-center my-4">Generating list...</p>';
+
+            if (!localStorage.getItem('userId')) {
+                container.innerHTML = '<p class="text-danger text-center">Please log in.</p>';
+                return;
+            }
+
+            const token = localStorage.getItem('jwt');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            try {
+                const res = await fetch(`/api/ShoppingList?startDate=${start}&endDate=${end}`, {
+                    headers: headers
+                });
+
+                if (!res.ok) {
+                    container.innerHTML = '<p class="text-danger text-center">Failed to generate list.</p>';
+                    return;
+                }
+
+                const items = await res.json();
+                if (!items || items.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center my-4">No ingredients found for this period.</p>';
+                    return;
+                }
+
+                let html = '<ul class="list-group list-group-flush">';
+                items.forEach(item => {
+                    html += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>${item.name}</span>
+                            <span class="badge bg-peach-subtle text-dark rounded-pill">
+                                ${item.quantity > 0 ? item.quantity : ''} ${item.unit || ''}
+                            </span>
+                        </li>`;
+                });
+                html += '</ul>';
+                container.innerHTML = html;
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p class="text-danger text-center">Error generating list.</p>';
+            }
+        }
+    </script>
+}
+

@@ -1,0 +1,238 @@
+﻿@{
+    ViewData["Title"] = "Create Recipe";
+}
+
+<section class="d-flex justify-content-center">
+    <div class="soft-card" style="max-width:800px; width:100%;">
+        <h1 class="h4 mb-3">Create a new recipe</h1>
+        <p class="text-muted small mb-4">
+            After you submit, your recipe will go into the approval queue for an admin to review.
+        </p>
+
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input id="title" class="form-control" placeholder="Creamy Garlic Pasta" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Short description</label>
+            <textarea id="shortDescription" class="form-control" rows="2"
+                      placeholder="A quick weeknight pasta with garlic and parmesan."></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Image URL (optional)</label>
+            <input id="imageUrl" class="form-control" placeholder="https://..." />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Instructions summary</label>
+            <textarea id="instructionsSummary" class="form-control" rows="3"
+                      placeholder="High-level summary of how to cook the dish."></textarea>
+        </div>
+
+        <hr />
+
+        <!-- INGREDIENTS -->
+        <h2 class="h5 mt-3">Ingredients</h2>
+        <div id="ingredientsList" class="mb-2"></div>
+        <button type="button" class="btn btn-sm btn-outline-peach mb-3" onclick="addIngredientRow()">
+            + Add ingredient
+        </button>
+
+        <hr />
+
+        <!-- STEPS -->
+        <h2 class="h5 mt-3">Steps</h2>
+        <div id="stepsList" class="mb-2"></div>
+        <button type="button" class="btn btn-sm btn-outline-peach mb-3" onclick="addStepRow()">
+            + Add step
+        </button>
+
+        <hr />
+
+        <!-- TAGS -->
+        <div class="mb-3">
+            <label class="form-label">Tags (comma-separated)</label>
+            <input id="tags" class="form-control" placeholder="vegan, quick, dinner" />
+        </div>
+
+        <div id="createError" class="text-danger small mb-2" style="display:none;"></div>
+
+        <button class="btn btn-peach" type="button" onclick="submitRecipe()">
+            Submit for approval
+        </button>
+    </div>
+</section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+@section Scripts {
+    <script>
+        const createRecipeApiUrl = '/api/Recipes';
+
+        function showError(message) {
+            const errorEl = document.getElementById('createError');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+
+        function addIngredientRow(name = "", qty = "", unit = "") {
+            const container = document.getElementById('ingredientsList');
+
+            const row = document.createElement('div');
+            row.className = "row g-2 mb-2";
+            row.innerHTML = `
+                <div class="col-6">
+                    <input class="form-control ing-name" placeholder="Ingredient" value="${name}" />
+                </div>
+                <div class="col-3">
+                    <input class="form-control ing-qty" placeholder="Qty" value="${qty}" />
+                </div>
+                <div class="col-3">
+                    <input class="form-control ing-unit" placeholder="Unit" value="${unit}" />
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        function addStepRow(text = "") {
+            const container = document.getElementById('stepsList');
+            const index = container.children.length + 1;
+
+            const row = document.createElement('div');
+            row.className = "mb-2";
+            row.innerHTML = `
+                <label class="form-label small mb-1">Step ${index}</label>
+                <textarea class="form-control step-text" rows="2">${text}</textarea>
+            `;
+            container.appendChild(row);
+        }
+
+        async function submitRecipe() {
+            const errorEl = document.getElementById('createError');
+            errorEl.style.display = "none";
+            errorEl.textContent = "";
+
+            // Auth is handled by cookies now.
+            // We can check userId for a quick UI check if we want, but server is source of truth.
+            if (!localStorage.getItem('userId')) {
+                 showError("Please log in to create a recipe.");
+                 return;
+            }
+
+            const title = document.getElementById('title').value.trim();
+            const shortDescription = document.getElementById('shortDescription').value.trim();
+            const imageUrl = document.getElementById('imageUrl').value.trim();
+            const instructionsSummary = document.getElementById('instructionsSummary').value.trim();
+            const tagInput = document.getElementById('tags').value;
+
+            if (!title) {
+                showError("Title is required.");
+                return;
+            }
+
+            // Collect ingredients
+            const ingNames = document.querySelectorAll('.ing-name');
+            const ingQtys = document.querySelectorAll('.ing-qty');
+            const ingUnits = document.querySelectorAll('.ing-unit');
+
+            const ingredients = [];
+            for (let i = 0; i < ingNames.length; i++) {
+                const name = ingNames[i].value.trim();
+                const qty = ingQtys[i].value.trim();
+                const unit = ingUnits[i].value.trim();
+                if (!name) continue;
+                ingredients.push({ name, quantity: qty, unit });
+            }
+
+            if (ingredients.length === 0) {
+                showError("Please add at least one ingredient.");
+                return;
+            }
+
+            // Collect steps
+            const stepTexts = document.querySelectorAll('.step-text');
+            const steps = [];
+            stepTexts.forEach((el, idx) => {
+                const desc = el.value.trim();
+                if (!desc) return;
+                steps.push({ stepNumber: idx + 1, description: desc });
+            });
+
+            if (steps.length === 0) {
+                showError("Please add at least one step.");
+                return;
+            }
+
+            const tags = tagInput
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
+
+            const payload = {
+                title,
+                shortDescription,
+                instructionsSummary,
+                imageUrl,
+                ingredients,
+                steps,
+                tags
+            };
+
+            const token = localStorage.getItem('jwt');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            try {
+                const res = await fetch(createRecipeApiUrl, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        showError("Session expired. Please log in again.");
+                        return;
+                    }
+                    const text = await res.text();
+                    console.error('Create recipe error:', res.status, text);
+                    showError("Something went wrong creating your recipe.");
+                    return;
+                }
+
+                // API returns { id: 123 } from CreatedAtAction
+                // We don’t strictly need it here, but we can read it if you ever want to redirect to Details.
+                // const data = await res.json();
+
+                alert("Recipe submitted for approval!");
+                // Go to user's recipes page
+                window.location.href = "/RecipesPages/MyRecipes";
+            } catch (err) {
+                console.error(err);
+                showError("Unexpected error while creating your recipe. Please try again.");
+            }
+        }
+
+        // add one blank row by default
+        document.addEventListener('DOMContentLoaded', () => {
+            addIngredientRow();
+            addStepRow();
+        });
+    </script>
+}

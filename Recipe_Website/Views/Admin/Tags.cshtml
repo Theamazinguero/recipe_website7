@@ -1,0 +1,58 @@
+﻿@{
+    ViewData["Title"] = "Tags";
+}
+
+<section class="mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="h4 mb-1">Tags & categories</h1>
+        <p class="small text-muted mb-0">
+            Merge duplicate tags so recipes stay easy to browse.
+        </p>
+    </div>
+    <a href="/Admin" class="small text-muted">← Back to dashboard</a>
+</section>
+
+<section class="soft-card">
+    <form id="mergeForm" class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label small">From Tag Id</label>
+            <input type="number" class="form-control" id="fromTagId" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Into Tag Id</label>
+            <input type="number" class="form-control" id="intoTagId" />
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <button type="submit" class="btn btn-peach w-100">Merge tags</button>
+        </div>
+    </form>
+
+    <p class="small text-muted mt-3 mb-0">
+        Tip: use the database / API to look up tag IDs. In a full version, this page would list tags with search.
+    </p>
+</section>
+
+@section Scripts {
+    <script>
+        document.getElementById("mergeForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fromId = document.getElementById("fromTagId").value;
+            const intoId = document.getElementById("intoTagId").value;
+
+            if (!fromId || !intoId) {
+                alert("Enter both tag ids.");
+                return;
+            }
+
+            const res = await fetch(`/api/admin/tags/merge?fromTagId=${fromId}&intoTagId=${intoId}`, {
+                method: "POST"
+            });
+
+            if (res.ok) {
+                alert("Tags merged.");
+            } else {
+                alert("Failed to merge tags.");
+            }
+        });
+    </script>
+}

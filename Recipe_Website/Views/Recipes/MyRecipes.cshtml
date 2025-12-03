@@ -1,0 +1,287 @@
+﻿@{
+    ViewData["Title"] = "My Recipes";
+}
+
+<style>
+    /* Page-specific polish */
+    .my-recipes-header h1 {
+        letter-spacing: -0.03em;
+    }
+
+    .my-recipes-header p {
+        max-width: 520px;
+    }
+
+    .my-recipes-filters .form-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .recipe-card-thumb {
+        width: 100%;
+        height: 140px;
+        border-radius: 14px;
+        object-fit: cover;
+        margin-bottom: 0.75rem;
+        background: #f5f1ec;
+    }
+
+    .recipe-card-meta {
+        font-size: 0.8rem;
+    }
+
+    .recipe-card-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+
+    .recipe-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 my-recipes-header">
+    <div>
+        <h1 class="fw-bold mb-1">My Recipes</h1>
+        <p class="text-muted mb-0">
+            View and manage all the recipes you’ve created in one place.
+        </p>
+    </div>
+
+    <a class="btn btn-peach px-4 py-2 shadow-sm" href="/Recipes/Create">
+        Create a New Recipe
+    </a>
+</div>
+
+<hr class="mb-4" />
+
+<!-- Filters / search -->
+<div class="soft-card mb-4 my-recipes-filters">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label for="searchBox" class="form-label fw-semibold mb-1">Search my recipes</label>
+            <input id="searchBox"
+                   class="form-control"
+                   placeholder="Search by title or description..." />
+        </div>
+        <div class="col-md-3">
+            <label for="statusFilter" class="form-label fw-semibold mb-1">Status</label>
+            <select id="statusFilter" class="form-select">
+                <option value="all">All</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending approval</option>
+                <option value="disabled">Disabled</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button id="applyFiltersBtn" class="btn btn-peach flex-fill">
+                Apply
+            </button>
+            <button id="clearFiltersBtn" class="btn btn-light border flex-fill">
+                Clear
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- My recipes list -->
+<section>
+    <div id="recipesContainer" class="row g-4">
+        <div class="col-12 text-center text-muted">
+            Loading your recipes…
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        const myRecipesApiUrl = '/api/Recipes/mine';
+        let allMyRecipes = [];
+
+        function statusInfo(recipe) {
+            if (recipe.isDisabled) {
+                return { text: 'Disabled', className: 'badge bg-secondary' };
+            }
+            if (recipe.isApproved) {
+                return { text: 'Approved', className: 'badge bg-success' };
+            }
+            return { text: 'Pending approval', className: 'badge bg-warning text-dark' };
+        }
+
+        function formatDateUtc(dateString) {
+            if (!dateString) return '';
+            const d = new Date(dateString);
+            if (isNaN(d)) return dateString;
+            return d.toLocaleDateString();
+        }
+
+        function renderRecipes(recipes) {
+            const container = document.getElementById('recipesContainer');
+            container.innerHTML = '';
+
+            if (!recipes || recipes.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-4">
+                        <p class="text-muted mb-2">You haven’t created any recipes yet.</p>
+                        <a class="btn btn-peach" href="/Recipes/Create">Create your first recipe</a>
+                    </div>`;
+                return;
+            }
+
+            recipes.forEach(r => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4';
+
+                const status = statusInfo(r);
+                const shortDesc = (r.shortDescription || '').trim();
+                const descSnippet = shortDesc.length > 110
+                    ? shortDesc.substring(0, 110) + '…'
+                    : shortDesc;
+
+                const tags = (r.tags || []).map(t =>
+                    `<span class="badge rounded-pill text-bg-light me-1 mb-1">${t}</span>`
+                ).join('');
+
+                col.innerHTML = `
+                    <div class="soft-card recipe-card h-100 d-flex flex-column">
+                        <div class="recipe-card-meta mb-2 d-flex justify-content-between align-items-start">
+                            <span class="${status.className}">${status.text}</span>
+                            <small class="text-muted">
+                                ${r.createdAtUtc ? 'Created ' + formatDateUtc(r.createdAtUtc) : ''}
+                            </small>
+                        </div>
+
+                        <h5 class="recipe-card-title mb-1">${r.title}</h5>
+                        <p class="text-muted small mb-2">${descSnippet || 'No description provided.'}</p>
+
+                        ${tags ? `<div class="mb-2 small">${tags}</div>` : ''}
+
+                        <div class="mt-auto d-flex justify-content-between align-items-center pt-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a class="btn btn-outline-peach"
+                                   href="/Recipes/Details/${r.id}">
+                                    View
+                                </a>
+                                <a class="btn btn-outline-peach"
+                                   href="/Recipes/Edit/${r.id}">
+                                    Edit
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(col);
+            });
+        }
+
+        function applyFilters() {
+            const search = (document.getElementById('searchBox').value || '').toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+
+            let filtered = [...allMyRecipes];
+
+            if (search) {
+                filtered = filtered.filter(r =>
+                    (r.title || '').toLowerCase().includes(search) ||
+                    (r.shortDescription || '').toLowerCase().includes(search)
+                );
+            }
+
+            if (status !== 'all') {
+                filtered = filtered.filter(r => {
+                    const isApproved = !!r.isApproved;
+                    const isDisabled = !!r.isDisabled;
+
+                    if (status === 'approved') return isApproved && !isDisabled;
+                    if (status === 'pending') return !isApproved && !isDisabled;
+                    if (status === 'disabled') return isDisabled;
+                    return true;
+                });
+            }
+
+            renderRecipes(filtered);
+        }
+
+        async function loadMyRecipes() {
+            const container = document.getElementById('recipesContainer');
+            container.innerHTML = `
+                <div class="col-12 text-center text-muted">
+                    Loading your recipes…
+                </div>`;
+
+            if (!localStorage.getItem('userId')) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-4">
+                        <p class="text-danger mb-2">
+                            You must be logged in to see your recipes.
+                        </p>
+                        <a class="btn btn-peach" href="/Home/Login">Go to Login</a>
+                    </div>`;
+                return;
+            }
+
+            const token = localStorage.getItem('jwt');
+            const headers = { 'Accept': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            try {
+                const response = await fetch(myRecipesApiUrl, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        container.innerHTML = `
+                            <div class="col-12 text-center py-4">
+                                <p class="text-danger mb-2">
+                                    You must be logged in to see your recipes.
+                                </p>
+                                <a class="btn btn-peach" href="/Home/Login">Go to Login</a>
+                            </div>`;
+                        return;
+                    }
+
+                    throw new Error('Failed to load recipes');
+                }
+
+                allMyRecipes = await response.json();
+                applyFilters();
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `
+                    <div class="col-12 text-center py-4">
+                        <p class="text-danger mb-1">Error loading your recipes.</p>
+                        <small class="text-muted">Please try again in a moment.</small>
+                    </div>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('applyFiltersBtn')
+                .addEventListener('click', applyFilters);
+
+            document.getElementById('clearFiltersBtn')
+                .addEventListener('click', () => {
+                    document.getElementById('searchBox').value = '';
+                    document.getElementById('statusFilter').value = 'all';
+                    applyFilters();
+                });
+
+            document.getElementById('searchBox')
+                .addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        applyFilters();
+                    }
+                });
+
+            loadMyRecipes();
+        });
+    </script>
+}

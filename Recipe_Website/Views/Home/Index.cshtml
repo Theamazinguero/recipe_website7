@@ -1,0 +1,153 @@
+﻿@{
+    ViewData["Title"] = "Recipe Planner";
+}
+
+<section class="hero py-5">
+    <div class="row align-items-center">
+        <!-- Left: main copy -->
+        <div class="col-lg-6 mb-4 mb-lg-0">
+            <p class="text-uppercase small text-muted mb-1">Welcome</p>
+            <h1 class="fw-bold hero-title mb-3">
+                Easy recipes<br />
+                for busy weeks.
+            </h1>
+
+            <p class="text-muted mb-4">
+                Recipe Planner helps you discover new meals, save your favourites, and
+                turn them into a simple week-by-week plan with a smart shopping list.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-peach" type="button" onclick="scrollToRecipes()">
+                    Browse recipes
+                </button>
+                <a asp-controller="MealPlan" asp-action="Index" class="btn btn-outline-peach">
+                    Plan this week
+                </a>
+            </div>
+        </div>
+
+        <!-- Right: feature highlight panel (no images) -->
+        <div class="col-lg-6">
+            <div class="soft-card hero-panel h-100 d-flex flex-column justify-content-center">
+                <h2 class="h5 mb-3">What you can do here</h2>
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-2">
+                        <span class="fw-semibold">Discover recipes</span> – search by ingredients or cravings.
+                    </li>
+                    <li class="mb-2">
+                        <span class="fw-semibold">Save favourites</span> – keep the meals you love in one place.
+                    </li>
+                    <li class="mb-2">
+                        <span class="fw-semibold">Build a meal plan</span> – map recipes to each day of the week.
+                    </li>
+                    <li>
+                        <span class="fw-semibold">Generate a list</span> – turn your plan into a clean shopping list.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search bar under hero -->
+    <div class="mt-5 d-flex justify-content-center">
+        <input id="searchBox"
+               class="form-control w-50 me-2"
+               placeholder="Search recipes (e.g. chicken, pasta)..." />
+        <button id="searchBtn" class="btn btn-peach">
+            Search
+        </button>
+    </div>
+</section>
+
+<section class="mt-5" id="recipesSection">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h2 class="h4 mb-1">What’s cooking in Recipe Planner</h2>
+            <p class="text-muted small mb-0">
+                Explore community recipes. Click any card to see full ingredients and steps.
+            </p>
+        </div>
+        <!-- could later add a “View all” link or filters here -->
+    </div>
+
+    <div id="recipesContainer" class="row g-4 mt-2">
+        <!-- recipe cards injected here -->
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        // Store JWT in localStorage if user just logged in
+        @if (ViewBag.JustLoggedIn == true)
+        {
+            <text>
+            localStorage.setItem('jwt', '@ViewBag.JwtToken');
+            localStorage.setItem('userId', '@ViewBag.UserId');
+            localStorage.setItem('email', '@ViewBag.Email');
+            localStorage.setItem('displayName', '@ViewBag.DisplayName');
+            localStorage.setItem('isAdmin', '@ViewBag.IsAdmin');
+            </text>
+        }
+
+        function scrollToRecipes() {
+            const section = document.getElementById('recipesSection');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        async function loadRecipes(search) {
+            const container = document.getElementById('recipesContainer');
+            container.innerHTML = "<p>Loading...</p>";
+
+            const query = search ? `?search=${encodeURIComponent(search)}` : "";
+            const response = await fetch(`/api/recipes${query}`);
+
+            if (!response.ok) {
+                container.innerHTML = "<p class='text-danger'>Failed to load recipes.</p>";
+                return;
+            }
+
+            const data = await response.json();
+            if (!Array.isArray(data) || data.length === 0) {
+                container.innerHTML = "<p class='text-muted'>No recipes found.</p>";
+                return;
+            }
+
+            container.innerHTML = "";
+            data.forEach(r => {
+                const col = document.createElement('div');
+                col.className = "col-md-4";
+
+                const desc = (r.shortDescription ?? "").trim();
+                const truncated = desc.length > 100 ? desc.substring(0, 100) + "…" : desc;
+
+                col.innerHTML = `
+                    <div class="soft-card h-100 d-flex flex-column">
+                        <h5 class="mb-1">${r.title}</h5>
+                        <p class="text-muted small mb-3">
+                            ${truncated || "No description provided."}
+                        </p>
+                        <div class="mt-auto d-flex justify-content-between align-items-center">
+                            <button class="btn btn-sm btn-outline-peach"
+                                    onclick="viewRecipe(${r.id})">
+                                View details
+                            </button>
+                        </div>
+                    </div>`;
+                container.appendChild(col);
+            });
+        }
+
+        function viewRecipe(id) {
+            window.location.href = `/Recipes/Details/${id}`;
+        }
+
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            loadRecipes(document.getElementById('searchBox').value);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => loadRecipes());
+    </script>
+}

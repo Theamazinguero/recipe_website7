@@ -1,0 +1,98 @@
+﻿@{
+    ViewData["Title"] = "Reports";
+}
+
+<section class="mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="h4 mb-1">User reports</h1>
+        <p class="small text-muted mb-0">
+            See content flagged by users and resolve reports once handled.
+        </p>
+    </div>
+    <a href="/Admin" class="small text-muted">← Back to dashboard</a>
+</section>
+
+<section>
+    <div id="reportsContainer" class="row g-3">
+        <p>Loading reports…</p>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        async function loadReports() {
+            const container = document.getElementById("reportsContainer");
+            container.innerHTML = "<p>Loading reports…</p>";
+
+            try {
+                const res = await fetch("/api/admin/reports");
+                if (!res.ok) {
+                    container.innerHTML = "<p class='text-danger'>Failed to load reports.</p>";
+                    return;
+                }
+
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = "<p class='text-muted'>No open reports 🎉</p>";
+                    return;
+                }
+
+                container.innerHTML = "";
+                data.forEach(r => {
+                    const col = document.createElement("div");
+                    col.className = "col-md-6";
+
+                    const created = r.createdAtUtc
+                        ? new Date(r.createdAtUtc).toLocaleString()
+                        : "";
+
+                    const target =
+                        r.commentId ? `Comment #${r.commentId}` :
+                        r.recipeId ? `Recipe #${r.recipeId}` :
+                        "Content";
+
+                    col.innerHTML = `
+                        <div class="soft-card h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h2 class="h6 mb-1">${target}</h2>
+                                    <p class="small text-muted mb-0">
+                                        Reported by ${r.reporter ?? "Unknown"} · ${created}
+                                    </p>
+                                </div>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">
+                                    Open
+                                </span>
+                            </div>
+                            <p class="small mb-3">${r.reason}</p>
+
+                            <button class="btn btn-sm btn-peach"
+                                    onclick="resolveReport(${r.id})">
+                                Mark as resolved
+                            </button>
+                        </div>`;
+                    container.appendChild(col);
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = "<p class='text-danger'>Error while loading reports.</p>";
+            }
+        }
+
+        async function resolveReport(id) {
+            if (!confirm("Mark this report as resolved?")) return;
+
+            const res = await fetch(`/api/admin/reports/${id}/resolve`, {
+                method: "POST"
+            });
+
+            if (res.ok) {
+                await loadReports();
+            } else {
+                alert("Failed to resolve report.");
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", loadReports);
+    </script>
+}

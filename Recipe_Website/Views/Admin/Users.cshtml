@@ -1,0 +1,81 @@
+﻿namespace Recipe@{
+    ViewData["Title"] = "Users";
+}
+
+<section class="mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="h4 mb-1">User moderation</h1>
+        <p class="small text-muted mb-0">
+            Quickly warn or ban users by their ID.
+        </p>
+    </div>
+    <a href="/Admin" class="small text-muted">← Back to dashboard</a>
+</section>
+
+<section class="soft-card">
+    <form id="warnForm" class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label small">User Id</label>
+            <input type="text" class="form-control" id="warnUserId" />
+        </div>
+        <div class="col-md-5">
+            <label class="form-label small">Warning message</label>
+            <input type="text" class="form-control" id="warnMessage"
+                   placeholder="Please follow the community rules." />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-outline-peach w-100">Send warning</button>
+        </div>
+    </form>
+
+    <form id="banForm" class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label small">User Id</label>
+            <input type="text" class="form-control" id="banUserId" />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-danger w-100">Ban user</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <script>
+        document.getElementById("warnForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById("warnUserId").value.trim();
+            const msg = document.getElementById("warnMessage").value.trim() || "Please follow the community rules.";
+            if (!userId) { alert("Enter a user id."); return; }
+
+            const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/warn`, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain" },
+                body: msg
+            });
+
+            if (res.ok) {
+                alert("Warning recorded (in a real app this would send email/notification).");
+            } else {
+                alert("Failed to warn user.");
+            }
+        });
+
+        document.getElementById("banForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById("banUserId").value.trim();
+            if (!userId) { alert("Enter a user id."); return; }
+
+            if (!confirm("Are you sure you want to ban this user?")) return;
+
+            const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/ban`, {
+                method: "POST"
+            });
+
+            if (res.ok) {
+                alert("User banned.");
+            } else {
+                alert("Failed to ban user.");
+            }
+        });
+    </script>
+}

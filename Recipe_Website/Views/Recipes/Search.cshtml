@@ -1,0 +1,179 @@
+﻿@{
+    ViewData["Title"] = "Search Recipes";
+}
+
+<section class="hero text-center">
+    <h1>Search recipes</h1>
+    <p class="mt-3 mb-4 text-muted" style="max-width:650px;margin:auto;">
+        Quickly find recipes by name, description, or tags. Start typing and jump straight into a dish.
+    </p>
+
+    <div class="d-flex justify-content-center mb-2">
+        <input id="searchBox"
+               class="form-control w-50 me-2"
+               placeholder="Search recipes (e.g. chicken, spicy, pasta)..." />
+        <button id="searchBtn" class="btn btn-peach">
+            Search
+        </button>
+    </div>
+
+    <p class="small text-muted mb-0">
+        Press <strong>Enter</strong> to search, or leave blank to see all recipes.
+    </p>
+</section>
+
+<section class="mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 mb-0" id="resultsHeading">Results</h2>
+        <span class="small text-muted" id="resultsSummary"></span>
+    </div>
+
+    <div id="searchResults" class="row g-4">
+        <div class="col-12">
+            <p class="text-muted mb-0">
+                Type something above and press Enter or Search to see results.
+            </p>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        const recipesApiBase = "/api/recipes";
+
+        function renderTagPills(tags) {
+            if (!tags || tags.length === 0) return "";
+
+            const limited = Array.from(tags).slice(0, 4);
+            const pills = limited.map(t => `
+                <span class="badge rounded-pill text-bg-light border me-1 mb-1">
+                    ${t}
+                </span>`).join("");
+
+            return `<div class="mt-1">${pills}</div>`;
+        }
+
+        function renderResults(recipes, searchText) {
+            const container = document.getElementById("searchResults");
+            const heading = document.getElementById("resultsHeading");
+            const summary = document.getElementById("resultsSummary");
+
+            if (!recipes || recipes.length === 0) {
+                heading.textContent = searchText
+                    ? `No results for "${searchText}"`
+                    : "No recipes found";
+
+                summary.textContent = "";
+                container.innerHTML = `
+                    <div class="text-center py-4 col-12">
+                        <h6 class="mb-1">No recipes found</h6>
+                        <p class="text-muted mb-0">
+                            Try a different keyword or broaden your search.
+                        </p>
+                    </div>`;
+                return;
+            }
+
+            heading.textContent = searchText
+                ? `Results for "${searchText}"`
+                : "All recipes";
+
+            summary.textContent = recipes.length === 1
+                ? "1 recipe found"
+                : `${recipes.length} recipes found`;
+
+            let html = "";
+
+            recipes.forEach(r => {
+                const title = r.title ?? "Untitled recipe";
+                const desc = (r.shortDescription ?? "").substring(0, 140);
+                const tags = r.tags ?? [];
+
+                html += `
+                    <div class="col-md-4">
+                        <div class="soft-card h-100 d-flex flex-column">
+                            <div class="mb-2">
+                                <h5 class="mb-1">${title}</h5>
+                                <p class="text-muted small mb-2">
+                                    ${desc}${desc.length === 140 ? "..." : ""}
+                                </p>
+                            </div>
+
+                            ${renderTagPills(tags)}
+
+                            <div class="mt-auto d-flex justify-content-between align-items-center pt-2">
+                                <button class="btn btn-sm btn-outline-peach"
+                                        onclick="goToRecipe(${r.id})">
+                                    View details
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function performSearch(text) {
+            const container = document.getElementById("searchResults");
+            const q = (text || "").trim();
+
+            container.innerHTML = `
+                <div class="col-12">
+                    <p class="text-muted mb-0">Searching…</p>
+                </div>`;
+
+            try {
+                let url = recipesApiBase;
+                // If q is empty, call /api/recipes (backend returns all approved)
+                if (q.length > 0) {
+                    url += "?search=" + encodeURIComponent(q);
+                }
+
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: { "Accept": "application/json" }
+                });
+
+                if (!response.ok) {
+                    throw new Error("Search failed");
+                }
+
+                const data = await response.json();
+                renderResults(data, q);
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `
+                    <div class="text-center py-4 col-12">
+                        <p class="text-danger mb-1">Error searching recipes.</p>
+                        <p class="text-muted mb-0">Please try again.</p>
+                    </div>`;
+                document.getElementById("resultsHeading").textContent = "Results";
+                document.getElementById("resultsSummary").textContent = "";
+            }
+        }
+
+        function goToRecipe(id) {
+            // Uses your MVC details page
+            window.location.href = `/Recipes/Details/${id}`;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const box = document.getElementById("searchBox");
+            const btn = document.getElementById("searchBtn");
+
+            btn.addEventListener("click", () => {
+                performSearch(box.value);
+            });
+
+            box.addEventListener("keyup", (e) => {
+                if (e.key === "Enter") {
+                    performSearch(e.target.value);
+                }
+            });
+
+            // Initial load – show all recipes like the Browse page
+            performSearch("");
+        });
+    </script>
+}

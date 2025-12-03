@@ -1,0 +1,276 @@
+﻿@model int
+
+@{
+    ViewData["Title"] = "Recipe";
+}
+
+<div id="recipePage" class="mt-3" style="max-width:900px;margin:auto;">
+    <div class="soft-card mb-3">
+        <span id="recipeTags" class="small text-muted d-block mb-2"></span>
+        <h1 id="recipeTitle" class="mb-2"></h1>
+        <p id="recipeMeta" class="text-muted small mb-3"></p>
+        <p id="recipeDescription" class="mb-0"></p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-3 mb-2">
+        <button class="btn btn-peach btn-sm" id="favoriteBtn">
+            ❤ Add to favourites
+        </button>
+        <button class="btn btn-outline-peach btn-sm" id="addToPlanBtn">
+            + Add to meal plan
+        </button>
+    </div>
+
+    <!-- inline message area for favourites / meal plan -->
+    <div id="recipeMessageArea" class="mb-3"></div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="soft-card h-100">
+                <h3 class="h5 mb-3">Ingredients</h3>
+                <ul id="ingredientsList" class="list-unstyled mb-0"></ul>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="soft-card h-100">
+                <h3 class="h5 mb-3">Steps</h3>
+                <ol id="stepsList" class="mb-0"></ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const recipeId = @Model;
+
+        // helper to show nice inline messages
+        function showRecipeMessage(text, type) {
+            // type: 'success' | 'error' | 'info'
+            const area = document.getElementById('recipeMessageArea');
+            const bsClass =
+                type === 'success' ? 'alert-success' :
+                type === 'error'   ? 'alert-danger'  :
+                                     'alert-info';
+
+            area.innerHTML = `
+                <div class="alert ${bsClass} py-2 mb-0 small">
+                    ${text}
+                </div>`;
+        }
+
+        async function loadRecipeDetails() {
+            try {
+                const res = await fetch(`/api/recipes/${recipeId}`);
+
+                if (!res.ok) {
+                    document.getElementById('recipePage').innerHTML =
+                        "<p class='text-danger'>Could not load recipe.</p>";
+                    return;
+                }
+
+                const r = await res.json();
+
+                // Title, description, meta
+                document.getElementById('recipeTitle').textContent =
+                    r.title ?? "Untitled recipe";
+
+                document.getElementById('recipeDescription').textContent =
+                    r.shortDescription || "";
+
+                const meta = [];
+                if (r.createdByDisplayName)
+                    meta.push(`By ${r.createdByDisplayName}`);
+                if (r.createdAtUtc) {
+                    const dt = new Date(r.createdAtUtc);
+                    if (!isNaN(dt.getTime())) {
+                        meta.push(dt.toLocaleDateString());
+                    }
+                }
+                document.getElementById('recipeMeta').textContent = meta.join(" • ");
+
+                const tagsEl = document.getElementById('recipeTags');
+                if (r.tags && r.tags.length > 0) {
+                    tagsEl.textContent = r.tags.join(" • ");
+                } else {
+                    tagsEl.style.display = "none";
+                }
+
+                // Ingredients
+                const ingList = document.getElementById('ingredientsList');
+                ingList.innerHTML = "";
+                const ingredients = r.ingredients || [];
+                if (ingredients.length === 0) {
+                    ingList.innerHTML =
+                        "<li class='text-muted small'>No ingredients listed.</li>";
+                } else {
+                    ingredients.forEach(i => {
+                        const li = document.createElement('li');
+                        li.className = "mb-1";
+                        const qty = (i.quantity && i.unit)
+                            ? `${i.quantity} ${i.unit}`
+                            : (i.quantity || "");
+                        li.textContent = qty ? `${qty} — ${i.name}` : i.name;
+                        ingList.appendChild(li);
+                    });
+                }
+
+                // Steps
+                const stepsList = document.getElementById('stepsList');
+                stepsList.innerHTML = "";
+                const steps = r.steps || [];
+                if (steps.length === 0) {
+                    stepsList.innerHTML =
+                        "<li class='text-muted small'>No steps provided.</li>";
+                } else {
+                    steps.forEach(s => {
+                        const li = document.createElement('li');
+                        li.className = "mb-2";
+                        li.textContent = s.description;
+                        stepsList.appendChild(li);
+                    });
+                }
+
+                // ---------- Favourite button ----------
+                const favBtn = document.getElementById('favoriteBtn');
+                favBtn.onclick = async () => {
+                    if (!localStorage.getItem('userId')) {
+                        showRecipeMessage(
+                            "Please log in to favourite recipes.",
+                            "info"
+                        );
+                        return;
+                    }
+
+                    const token = localStorage.getItem('jwt');
+                    const headers = {};
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+
+                    try {
+                        const resp = await fetch(`/api/recipes/${recipeId}/favorite`, {
+                            method: 'POST',
+                            headers: headers
+                        });
+
+                        if (!resp.ok) {
+                            if (resp.status === 401) {
+                                showRecipeMessage(
+                                    "Session expired. Please log in again to update favourites.",
+                                    "error"
+                                );
+                            } else {
+                                showRecipeMessage(
+                                    "Could not update favourite. Please try again.",
+                                    "error"
+                                );
+                            }
+                            return;
+                        }
+
+                        // simple optimistic toggle text
+                        if (favBtn.textContent.includes("Add")) {
+                            favBtn.textContent = "♥ Remove from favourites";
+                            showRecipeMessage(
+                                "Recipe added to your favourites.",
+                                "success"
+                            );
+                        } else {
+                            favBtn.textContent = "❤ Add to favourites";
+                            showRecipeMessage(
+                                "Recipe removed from your favourites.",
+                                "info"
+                            );
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showRecipeMessage(
+                            "Error contacting the server. Please try again.",
+                            "error"
+                        );
+                    }
+                };
+
+                // ---------- Meal plan button ----------
+                const addToPlanBtn = document.getElementById('addToPlanBtn');
+                addToPlanBtn.onclick = async () => {
+                    if (!localStorage.getItem('userId')) {
+                        showRecipeMessage(
+                            "Please log in to add this recipe to your meal plan.",
+                            "info"
+                        );
+                        return;
+                    }
+
+                    // simple behaviour: create a 1-day meal plan for today, as Dinner
+                    const todayIso = new Date().toISOString();
+
+                    const body = {
+                        startDate: todayIso,
+                        endDate: todayIso,
+                        items: [
+                            {
+                                recipeId: recipeId,
+                                date: todayIso,
+                                mealType: "Dinner"
+                            }
+                        ]
+                    };
+
+                    const token = localStorage.getItem('jwt');
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    };
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+
+                    try {
+                        const resp = await fetch('/api/mealplans', {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify(body)
+                        });
+
+                        if (resp.status === 401) {
+                            showRecipeMessage(
+                                "Session expired. Please log in again to manage your meal plan.",
+                                "error"
+                            );
+                            return;
+                        }
+
+                        if (!resp.ok && resp.status !== 201) {
+                            showRecipeMessage(
+                                "Could not add to meal plan. Please try again.",
+                                "error"
+                            );
+                            return;
+                        }
+
+                        showRecipeMessage(
+                            "Recipe added to your meal plan for today (Dinner).",
+                            "success"
+                        );
+                    } catch (err) {
+                        console.error(err);
+                        showRecipeMessage(
+                            "Error contacting the server. Please try again.",
+                            "error"
+                        );
+                    }
+                };
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('recipePage').innerHTML =
+                    "<p class='text-danger'>Error loading recipe.</p>";
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadRecipeDetails);
+    </script>
+}

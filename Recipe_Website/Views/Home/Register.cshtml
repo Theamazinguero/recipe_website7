@@ -1,0 +1,118 @@
+﻿@model RecipeApp.Api.DTOs.RegisterRequest
+@{
+    ViewData["Title"] = "Register";
+}
+
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .register-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        padding: 3rem;
+        max-width: 450px;
+        width: 100%;
+    }
+
+    .register-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .register-subtitle {
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    .form-control {
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e0e0e0;
+    }
+
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .btn-register {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem;
+        font-weight: 600;
+        color: white;
+        width: 100%;
+        transition: transform 0.2s;
+    }
+
+    .btn-register:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .login-link {
+        text-align: center;
+        margin-top: 1.5rem;
+        color: #666;
+    }
+
+    .login-link a {
+        color: #667eea;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .login-link a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="register-card">
+    <h1 class="register-title">Create Account</h1>
+    <p class="register-subtitle">Join Recipe Planner today</p>
+
+    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+    <form asp-action="Register" asp-controller="Home" method="post">
+        @Html.AntiForgeryToken()
+        
+        <div class="mb-3">
+            <label asp-for="DisplayName" class="form-label">Display Name</label>
+            <input asp-for="DisplayName" class="form-control" placeholder="Enter your name" required />
+            <span asp-validation-for="DisplayName" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label">Email</label>
+            <input asp-for="Email" class="form-control" placeholder="Enter your email" required />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label">Password</label>
+            <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" required />
+            <span asp-validation-for="Password" class="text-danger"></span>
+            <small class="text-muted">Minimum 6 characters, must include a digit</small>
+        </div>
+
+        <button type="submit" class="btn btn-register">Create Account</button>
+    </form>
+
+    <div class="login-link">
+        Already have an account? <a href="/Home/Login">Sign in</a>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

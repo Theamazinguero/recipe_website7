@@ -1,0 +1,112 @@
+﻿@{
+    ViewData["Title"] = "Pending Recipes";
+}
+
+<section class="mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="h4 mb-1">Pending recipes</h1>
+        <p class="small text-muted mb-0">
+            Approve or disable recipes that were submitted by users and are waiting for review.
+        </p>
+    </div>
+    <a href="/Admin" class="small text-muted">← Back to dashboard</a>
+</section>
+
+<section>
+    <div id="pendingContainer" class="row g-3">
+        <p>Loading pending recipes…</p>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        async function loadPending() {
+            const container = document.getElementById("pendingContainer");
+            container.innerHTML = "<p>Loading pending recipes…</p>";
+
+            try {
+                const res = await fetch("/api/admin/recipes/pending");
+                if (!res.ok) {
+                    container.innerHTML = "<p class='text-danger'>Failed to load pending recipes.</p>";
+                    return;
+                }
+
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = "<p class='text-muted'>No recipes are waiting for approval.</p>";
+                    return;
+                }
+
+                container.innerHTML = "";
+                data.forEach(r => {
+                    const col = document.createElement("div");
+                    col.className = "col-md-6";
+
+                    const created = r.createdAtUtc
+                        ? new Date(r.createdAtUtc).toLocaleString()
+                        : "";
+
+                    col.innerHTML = `
+                        <div class="soft-card h-100">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h2 class="h6 mb-1">${r.title}</h2>
+                                    <p class="small text-muted mb-0">
+                                        by ${r.author ?? "Unknown"} · ${created}
+                                    </p>
+                                </div>
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle small">
+                                    Pending
+                                </span>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-3">
+                                <button class="btn btn-sm btn-peach"
+                                        onclick="approveRecipe(${r.id})">
+                                    Approve
+                                </button>
+                                <button class="btn btn-sm btn-outline-peach"
+                                        onclick="disableRecipe(${r.id})">
+                                    Disable
+                                </button>
+                            </div>
+                        </div>`;
+                    container.appendChild(col);
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = "<p class='text-danger'>Error while loading pending recipes.</p>";
+            }
+        }
+
+        async function approveRecipe(id) {
+            if (!confirm("Approve this recipe?")) return;
+
+            const res = await fetch(`/api/admin/recipes/${id}/approve`, {
+                method: "POST"
+            });
+
+            if (res.ok) {
+                await loadPending();
+            } else {
+                alert("Failed to approve recipe.");
+            }
+        }
+
+        async function disableRecipe(id) {
+            if (!confirm("Disable this recipe?")) return;
+
+            const res = await fetch(`/api/admin/recipes/${id}/disable`, {
+                method: "POST"
+            });
+
+            if (res.ok) {
+                await loadPending();
+            } else {
+                alert("Failed to disable recipe.");
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", loadPending);
+    </script>
+}
