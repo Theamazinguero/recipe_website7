@@ -1,4 +1,3 @@
-﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -40,7 +39,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddAuthorization();
 
-// ------------------ MVC ------------------
+// ------------------ MVC + API ------------------
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
     {
@@ -70,14 +69,18 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
 app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 🔹 MVC routes
+// 🔹 MVC conventional routes (Razor views)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// 🔹 Attribute-routed API controllers (like /api/mealplans)
+app.MapControllers();
 
 app.Run();
